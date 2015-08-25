@@ -45,6 +45,7 @@
 
 #define QCDT_DT_TAG    "qcom,msm-id = <"
 #define QCDT_BOARD_TAG "qcom,board-id = <"
+#define QCDT_HW_VERSION_TAG "qcom,hw-ver = <"
 
 #define PAGE_SIZE_DEF  2048
 #define PAGE_SIZE_MAX  (1024*1024)
@@ -64,6 +65,7 @@ struct chipInfo_t {
   uint32_t subtype;
   uint32_t revNum;
   uint32_t dtb_size;
+  uint32_t hwVer;
   char     *dtb_file;
   struct chipInfo_t *prev;
   struct chipInfo_t *next;
@@ -87,6 +89,12 @@ struct chipSt_t {
   uint32_t subtype;
   struct chipSt_t *next;
   struct chipSt_t *t_next;
+};
+
+struct chipHw_t {
+  uint32_t hwVer;
+  struct chipHw_t *next;
+  struct chipHw_t *t_next;
 };
 
 char *input_dir;
@@ -183,7 +191,9 @@ int chip_add(struct chipInfo_t *c)
               ((c->platform == x->platform) &&
                ((c->subtype < x->subtype) ||
                 ((c->subtype == x->subtype) &&
-                 (c->revNum < x->revNum))))))) {
+                 ((c->hwVer < x->hwVer) ||
+                  ((c->hwVer == x->hwVer) &&
+                   (c->revNum < x->revNum))))))))) {
             if (!x->prev) {
                 c->next = x;
                 c->prev = NULL;
@@ -201,7 +211,8 @@ int chip_add(struct chipInfo_t *c)
         if ((c->chipset == x->chipset) &&
             (c->platform == x->platform) &&
             (c->subtype == x->subtype) &&
-            (c->revNum == x->revNum)) {
+            (c->revNum == x->revNum) &&
+            (c->hwVer == x->hwVer)) {
             return RC_ERROR;  /* duplicate */
         }
         if (!x->next) {
@@ -252,10 +263,12 @@ struct chipInfo_t *getChipInfo(const char *filename, int *num, uint32_t msmversi
     uint32_t data_st[2] = {0, 0};
     char *tok, *sptr = NULL;
     int i, entryValid, entryEnded;
-    int count = 0, count1 = 0, count2 =0;
+    int count = 0, count1 = 0, count2 =0, count3 =0;
     int entryValidST, entryEndedST, entryValidDT, entryEndedDT;
+    int entryValidHW, entryEndedHW;
     struct chipId_t *chipId = NULL, *cId = NULL, *tmp_id = NULL;
     struct chipSt_t *chipSt = NULL, *cSt = NULL, *tmp_st = NULL;
+    struct chipHw_t *chipHw = NULL, *cHw = NULL, *tmp_hw = NULL;
 
     line_size = 1024;
     line = (char *)malloc(line_size);
@@ -437,6 +450,49 @@ struct chipInfo_t *getChipInfo(const char *filename, int *num, uint32_t msmversi
                         }
                     }
                 }
+
+                if ((pos = strstr(line,QCDT_HW_VERSION_TAG)) != NULL) {
+                    uint32_t data;
+                    pos += strlen(QCDT_HW_VERSION_TAG);
+                    entryEndedHW = 0;
+                    for (;entryEndedHW < 1;) {
+                        entryValidHW = 1;
+                        tok = strtok_r(pos, "", &sptr);
+                        pos = NULL;
+                        if (tok != NULL) {
+                            if (*tok == '>') {
+                                entryEndedHW = 1;
+                                entryValidHW = 0;
+                                break;
+                            }
+                            data = strtoul(tok, NULL, 0);
+                        } else {
+                            data = 0;
+                            entryValidHW = 0;
+                            entryEndedHW = 1;
+                        }
+                        if (entryValidHW) {
+                            tmp_hw = (struct chipHw_t *)
+                                       malloc(sizeof(struct chipHw_t));
+                            if (!tmp_hw) {
+                                log_err("Out of memory\n");
+                                break;
+                            }
+
+                            if (!chipHw) {
+                                chipHw = tmp_hw;
+                                cHw = tmp_hw;
+                                chipHw->t_next = NULL;
+                            } else {
+                                tmp_hw->t_next = chipHw->t_next;
+                                chipHw->t_next = tmp_hw;
+                            }
+
+                            tmp_hw->hwVer = data;
+                            count3++;
+                        }
+                    }
+                }
             }
         }
     }
@@ -453,7 +509,13 @@ struct chipInfo_t *getChipInfo(const char *filename, int *num, uint32_t msmversi
         return NULL;
     }
 
+    if (count3 == 0) {
+        log_err("... skip, incorrect '%s' format\n", QCDT_HW_VERSION_TAG);
+        return NULL;
+    }
+
     tmp_st = cSt;
+    tmp_hw = cHw;
     while (cId != NULL) {
         while (cSt != NULL) {
             tmp = (struct chipInfo_t *)
@@ -474,6 +536,7 @@ struct chipInfo_t *getChipInfo(const char *filename, int *num, uint32_t msmversi
             tmp->platform = cSt->platform;
             tmp->revNum   = cId->revNum;
             tmp->subtype  = cSt->subtype;
+            tmp->hwVer = cHw->hwVer;
             tmp->dtb_size = 0;
             tmp->dtb_file = NULL;
             tmp->master   = chip;
@@ -481,17 +544,20 @@ struct chipInfo_t *getChipInfo(const char *filename, int *num, uint32_t msmversi
             tmp->master_offset = 0;
 
             cSt = cSt->t_next;
+            cHw = cHw->t_next;
 
         }
         cSt = tmp_st;
         cId = cId->t_next;
+        cHw = tmp_hw;
     }
 
-    if (entryEndedST  == 1 && entryEndedDT == 1) {
+    if (entryEndedST  == 1 && entryEndedDT == 1 && entryEndedHW == 1) {
         pclose(pfile);
         *num = count1;
         free(chipSt);
         free(chipId);
+        free(chipHw);
         return chip;
     }
 
@@ -737,6 +803,7 @@ int main(int argc, char **argv)
          platform
          subtype
          soc rev
+         hw-ver
          dtb offset
          dtb size
      */
