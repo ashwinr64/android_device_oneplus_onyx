@@ -791,7 +791,7 @@ int main(int argc, char **argv)
 
     /* Calculate offset of first DTB block */
     dtb_offset = 12               + /* header */
-                 (32 * dtb_count) + /* DTB table entries */
+                 (36 * dtb_count) + /* DTB table entries */
                  4;                 /* end of table indicator */
     /* Round up to page size */
     padding = page_size - (dtb_offset % page_size);
@@ -804,6 +804,7 @@ int main(int argc, char **argv)
          subtype
          soc rev
          hw-ver
+		 product-name
          dtb offset
          dtb size
      */
@@ -812,8 +813,8 @@ int main(int argc, char **argv)
         wrote += write(out_fd, &chip->platform, sizeof(uint32_t));
         wrote += write(out_fd, &chip->subtype, sizeof(uint32_t));
         wrote += write(out_fd, &chip->revNum, sizeof(uint32_t));
-        wrote += write(out_fd, &chip->productName, sizeof(uint32_t));
         wrote += write(out_fd, &chip->hwVer, sizeof(uint32_t));
+        wrote += write(out_fd, "15055\0\0\0", sizeof(uint64_t));
         if (chip->master->master_offset != 0) {
             wrote += write(out_fd, &chip->master->master_offset, sizeof(uint32_t));
         } else {
