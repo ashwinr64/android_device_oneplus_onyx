@@ -186,6 +186,9 @@ on boot
     # Wifi firmware reload path
     chown wifi wifi /sys/module/wlan/parameters/fwpath
 
+    # Mark wifi driver as unloaded - "ok" indicates loaded
+    setprop wlan.driver.status not_ok
+
 on post-fs
     # Reverse Keys
     write /proc/s1302/key_rep 1
