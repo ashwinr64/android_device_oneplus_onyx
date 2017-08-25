@@ -114,8 +114,8 @@ PRODUCT_PACKAGES += \
     rmnetcli
 
 # Doze
-PRODUCT_PACKAGES += \
-    OneplusDoze
+# PRODUCT_PACKAGES += \
+#     OneplusDoze
 
 # Graphics
 PRODUCT_PACKAGES += \
