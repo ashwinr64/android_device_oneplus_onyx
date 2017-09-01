@@ -35,7 +35,6 @@
 #include "log.h"
 
 using android::base::GetProperty;
-using android::base::SetProperty;
 
 void property_override(char const prop[], char const value[])
 {
@@ -61,19 +60,19 @@ void vendor_load_properties()
     if (rf_version == "101") {
         /* China */
         property_override("ro.product.model", "ONE E1001");
-        SetProperty("ro.rf_version", "TDD_FDD_Ch_All");
+        property_set("ro.rf_version", "TDD_FDD_Ch_All");
     } else if (rf_version == "102") {
         /* Asia/Europe */
         property_override("ro.product.model", "ONE E1003");
-        SetProperty("ro.rf_version", "TDD_FDD_Eu");
+        property_set("ro.rf_version", "TDD_FDD_Eu");
     } else if (rf_version == "103"){
         /* America */
         property_override("ro.product.model", "ONE E1005");
-        SetProperty("ro.rf_version", "TDD_FDD_Am");
+        property_set("ro.rf_version", "TDD_FDD_Am");
     } else if (rf_version == "107"){
         /* China CTCC Version */
         property_override("ro.product.model", "ONE E1000");
-        SetProperty("ro.rf_version", "TDD_FDD_ALL_OPTR");
+        property_set("ro.rf_version", "TDD_FDD_ALL_OPTR");
     }
     device = GetProperty("ro.product.device", "");
     LOG(INFO) << "Found rf_version : " << rf_version.c_str() << " setting build properties for " << device.c_str() << " device\n";
